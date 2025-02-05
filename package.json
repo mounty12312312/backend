@@ -4,7 +4,7 @@
   "description": "Backend for My Merch App",
   "main": "server.js",
   "engines": {
-    "node": "22.13.1"
+    "node": "22.x"
   },
   "scripts": {
     "start": "node server.js"
