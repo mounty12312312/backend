@@ -1,14 +1,12 @@
 require('dotenv').config();
 
-console.log('GOOGLE_SHEETS_CLIENT_EMAIL:', process.env.GOOGLE_SHEETS_CLIENT_EMAIL);
-console.log('GOOGLE_PRIVATE_KEY:', process.env.GOOGLE_PRIVATE_KEY);
-console.log('SPREADSHEET_ID:', process.env.SPREADSHEET_ID);
-
 const express = require('express');
+const cors = require('cors');
 const { readData, writeData } = require('./googleSheets');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(cors()); // Используем cors для всех маршрутов
 app.use(express.json());
 
 // Получение списка товаров
