@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Backend for My Merch App",
   "main": "server.js",
+  "engines": {
+    "node": "22.13.1"
+  },
   "scripts": {
     "start": "node server.js"
   },
