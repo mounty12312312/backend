@@ -27,6 +27,7 @@ app.get('/api/products', async (req, res) => {
     console.error('Error fetching products:', error);
     res.status(500).send('Internal Server Error');
   }
+  console.log('Products:', products);
 });
 
 // Получение информации о пользователе
@@ -44,6 +45,7 @@ app.get('/api/user/:telegramId', async (req, res) => {
     console.error('Error fetching user:', error);
     res.status(500).send('Internal Server Error');
   }
+  console.log('Telegram ID:', telegramId);
 });
 
 // Обновление баланса пользователя
