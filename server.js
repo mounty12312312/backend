@@ -1,9 +1,5 @@
 require('dotenv').config();
 
-console.log('GOOGLE_SHEETS_CLIENT_EMAIL:', process.env.GOOGLE_SHEETS_CLIENT_EMAIL);
-console.log('GOOGLE_PRIVATE_KEY:', process.env.GOOGLE_PRIVATE_KEY);
-console.log('SPREADSHEET_ID:', process.env.SPREADSHEET_ID);
-
 const express = require('express');
 const cors = require('cors'); // Импортируем cors
 const { readData, writeData } = require('./googleSheets');
@@ -72,10 +68,29 @@ app.post('/api/user/:telegramId/updateBalance', async (req, res) => {
 app.post('/api/order', async (req, res) => {
   try {
     const order = req.body;
-    await writeData('order!A2:D', [[JSON.stringify(order)]]);
+    const orders = await readData('order!A2:D');
+    const nextRow = orders.length + 2; // +2 для учета заголовков
+    await writeData(`order!A${nextRow}:D${nextRow}`, [[order.telegramId, order.date, JSON.stringify(order.products), order.totalCost]]);
     res.send('Order added');
   } catch (error) {
     console.error('Error adding order:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// Получение истории заказов
+app.get('/api/orders', async (req, res) => {
+  try {
+    const orders = await readData('order!A2:D');
+    res.json(orders.map(order => ({
+      telegramId: order[0],
+      date: order[1],
+      products: JSON.parse(order[2]),
+      totalCost: parseFloat(order[3])
+    })));
+    console.log('Orders:', orders);
+  } catch (error) {
+    console.error('Error fetching orders:', error);
     res.status(500).send('Internal Server Error');
   }
 });
