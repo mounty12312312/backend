@@ -23,11 +23,11 @@ app.get('/api/products', async (req, res) => {
   try {
     const products = await readData('product!A2:F');
     res.json(products);
+    console.log('Products:', products);
   } catch (error) {
     console.error('Error fetching products:', error);
     res.status(500).send('Internal Server Error');
   }
-  console.log('Products:', products);
 });
 
 // Получение информации о пользователе
@@ -38,14 +38,15 @@ app.get('/api/user/:telegramId', async (req, res) => {
     const user = users.find(u => u[0] === telegramId);
     if (user) {
       res.json(user);
+      console.log('Telegram ID:', telegramId);
     } else {
       res.status(404).send('User not found');
+      console.log('Telegram ID:', telegramId);
     }
   } catch (error) {
     console.error('Error fetching user:', error);
     res.status(500).send('Internal Server Error');
   }
-  console.log('Telegram ID:', telegramId);
 });
 
 // Обновление баланса пользователя
