@@ -72,7 +72,7 @@ app.post('/api/user/:telegramId/updateBalance', async (req, res) => {
 app.post('/api/order', async (req, res) => {
   try {
     const order = req.body;
-    await writeData('orders!A2:A', [[JSON.stringify(order)]]);
+    await writeData('order!A2:D', [[JSON.stringify(order)]]);
     res.send('Order added');
   } catch (error) {
     console.error('Error adding order:', error);
