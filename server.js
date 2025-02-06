@@ -5,12 +5,10 @@ const cors = require('cors'); // Импортируем cors
 const { readData, writeData } = require('./googleSheets');
 const app = express();
 const PORT = process.env.PORT || 3000;
-
 const corsOptions = {
   origin: 'https://mounty12312312.github.io', // Разрешаем только этот домен
   optionsSuccessStatus: 200 // Настраиваем статус для предварительных запросов
 };
-
 app.use(cors(corsOptions)); // Используем cors для всех маршрутов
 app.use(express.json());
 
@@ -54,7 +52,7 @@ app.post('/api/user/:telegramId/updateBalance', async (req, res) => {
     const rowIndex = users.findIndex(u => u[0] === telegramId) + 2; // +2 для учета заголовков
     if (rowIndex > 1) {
       await writeData(`user!B${rowIndex}`, [[newBalance]]);
-      res.send('Balance updated');
+      res.json({ success: true, newBalance });
     } else {
       res.status(404).send('User not found');
     }
@@ -71,7 +69,7 @@ app.post('/api/order', async (req, res) => {
     const orders = await readData('order!A2:D');
     const nextRow = orders.length + 2; // +2 для учета заголовков
     await writeData(`order!A${nextRow}:D${nextRow}`, [[order.telegramId, order.date, JSON.stringify(order.products), order.totalCost]]);
-    res.send('Order added');
+    res.json({ success: true, order });
   } catch (error) {
     console.error('Error adding order:', error);
     res.status(500).send('Internal Server Error');
@@ -87,7 +85,7 @@ app.get('/api/orders', async (req, res) => {
       date: order[1],
       products: JSON.parse(order[2]),
       totalCost: parseFloat(order[3])
-    })));
+    })).sort((a, b) => new Date(b.date) - new Date(a.date))); // Сортировка по дате
     console.log('Orders:', orders);
   } catch (error) {
     console.error('Error fetching orders:', error);
