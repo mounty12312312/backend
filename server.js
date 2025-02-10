@@ -78,15 +78,23 @@ app.post('/api/order', async (req, res) => {
 
 // Получение истории заказов
 app.get('/api/orders', async (req, res) => {
+  const { telegramId } = req.query; // Получаем telegramId из параметров запроса
   try {
-    const orders = await readData('order!A2:D');
-    res.json(orders.map(order => ({
-      telegramId: order[0],
-      date: order[1],
-      products: JSON.parse(order[2]),
-      totalCost: parseFloat(order[3])
-    })).sort((a, b) => new Date(b.date) - new Date(a.date))); // Сортировка по дате
-    console.log('Orders:', orders);
+    const orders = await readData('order!A2:D'); // Читаем данные из таблицы
+
+    // Фильтруем заказы по telegramId
+    const filteredOrders = orders
+      .filter(order => order[0] === telegramId) // Оставляем только заказы с нужным telegramId
+      .map(order => ({
+        telegramId: order[0],
+        date: order[1],
+        products: JSON.parse(order[2]), // Парсим JSON с товарами
+        totalCost: parseFloat(order[3]) // Преобразуем стоимость в число
+      }))
+      .sort((a, b) => new Date(b.date) - new Date(a.date)); // Сортировка по дате
+
+    console.log('Filtered Orders:', filteredOrders);
+    res.json(filteredOrders); // Возвращаем отфильтрованные заказы
   } catch (error) {
     console.error('Error fetching orders:', error);
     res.status(500).send('Internal Server Error');
