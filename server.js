@@ -8,9 +8,9 @@ const PORT = process.env.PORT || 3000;
 
 // Настройка CORS
 app.use(cors({
-  origin: '*', // Для тестирования. В продакшене укажите конкретный домен
-  methods: ['GET', 'POST'], // Явно указываем разрешенные методы
-  allowedHeaders: ['Content-Type']
+  origin: 'https://mounty12312312.github.io',
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type', 'Accept', 'Origin']
 }));
 
 app.use(express.json());
