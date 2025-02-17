@@ -6,13 +6,8 @@ const { google } = require('googleapis');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Настройка CORS для GitHub Pages
-app.use(cors({
-  origin: 'https://mounty12312312.github.io',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type']
-}));
-
+// Простая настройка CORS
+app.use(cors());
 app.use(express.json());
 
 // Добавим логирование всех запросов
@@ -46,10 +41,7 @@ app.get('/api/balance/:telegramId', async (req, res) => {
     }
   } catch (error) {
     console.error('Ошибка при получении баланса:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Внутренняя ошибка сервера при получении баланса' 
-    });
+    res.status(500).json({ success: false, error: 'Ошибка сервера' });
   }
 });
 
@@ -66,10 +58,7 @@ app.get('/api/products', async (req, res) => {
     res.json(formattedProducts);
   } catch (error) {
     console.error('Ошибка при получении продуктов:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Внутренняя ошибка сервера при получении продуктов' 
-    });
+    res.status(500).json({ success: false, error: 'Ошибка сервера' });
   }
 });
 
@@ -92,10 +81,7 @@ app.get('/api/orders', async (req, res) => {
     res.json(userOrders);
   } catch (error) {
     console.error('Ошибка при получении заказов:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Внутренняя ошибка сервера при получении заказов' 
-    });
+    res.status(500).json({ success: false, error: 'Ошибка сервера' });
   }
 });
 
