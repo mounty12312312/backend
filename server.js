@@ -48,9 +48,13 @@ app.post('/api/user/:telegramId/updateBalance', async (req, res) => {
   try {
     const telegramId = req.params.telegramId;
     const newBalance = req.body.balance;
+    
+    // Получаем текущих пользователей
     const users = await readData('user!A2:B');
-    const rowIndex = users.findIndex(u => u[0] === telegramId) + 2; // +2 для учета заголовков
+    const rowIndex = users.findIndex(u => u[0] === telegramId) + 2; // +2 для учета заголовка
+    
     if (rowIndex > 1) {
+      // Обновляем баланс в таблице
       await writeData(`user!B${rowIndex}`, [[newBalance]]);
       res.json({ success: true, newBalance });
     } else {
@@ -62,39 +66,84 @@ app.post('/api/user/:telegramId/updateBalance', async (req, res) => {
   }
 });
 
-// Добавление заказа в историю
+// Обновляем обработку заказа
 app.post('/api/order', async (req, res) => {
   try {
-    const order = req.body;
+    const { telegramId, products, totalCost, date, deliveryInfo } = req.body;
+
+    // 1. Проверяем баланс пользователя
+    const users = await readData('user!A2:B');
+    const user = users.find(u => u[0] === telegramId);
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const currentBalance = parseFloat(user[1]);
+    if (currentBalance < totalCost) {
+      return res.status(400).json({ success: false, message: 'Insufficient balance' });
+    }
+
+    // 2. Обновляем баланс пользователя
+    const newBalance = currentBalance - totalCost;
+    const userRowIndex = users.findIndex(u => u[0] === telegramId) + 2;
+    await writeData(`user!B${userRowIndex}`, [[newBalance]]);
+
+    // 3. Сохраняем заказ
     const orders = await readData('order!A2:D');
-    const nextRow = orders.length + 2; // +2 для учета заголовков
-    await writeData(`order!A${nextRow}:D${nextRow}`, [[order.telegramId, order.date, JSON.stringify(order.products), order.totalCost]]);
-    res.json({ success: true, order });
+    const nextRow = orders.length + 2;
+    
+    // Подготавливаем данные заказа
+    const orderData = {
+      products,
+      deliveryInfo
+    };
+
+    await writeData(`order!A${nextRow}:D${nextRow}`, [[
+      telegramId,
+      date,
+      JSON.stringify(orderData), // Сохраняем и товары, и данные доставки
+      totalCost
+    ]]);
+
+    // 4. Отправляем успешный ответ
+    res.json({
+      success: true,
+      newBalance,
+      message: 'Order processed successfully'
+    });
+
   } catch (error) {
-    console.error('Error adding order:', error);
-    res.status(500).send('Internal Server Error');
+    console.error('Error processing order:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal Server Error'
+    });
   }
 });
 
-// Получение истории заказов
+// Обновляем получение заказов
 app.get('/api/orders', async (req, res) => {
-  const { telegramId } = req.query; // Получаем telegramId из параметров запроса
   try {
-    const orders = await readData('order!A2:D'); // Читаем данные из таблицы
+    const telegramId = req.query.telegramId;
+    const orders = await readData('order!A2:D');
+    
+    // Фильтруем и форматируем заказы для конкретного пользователя
+    const userOrders = orders
+      .filter(order => order[0] === telegramId)
+      .map(order => {
+        const orderData = JSON.parse(order[2]);
+        return {
+          telegramId: order[0],
+          date: order[1],
+          products: orderData.products,
+          deliveryInfo: orderData.deliveryInfo,
+          totalCost: parseFloat(order[3])
+        };
+      })
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    // Фильтруем заказы по telegramId
-    const filteredOrders = orders
-      .filter(order => order[0] === telegramId) // Оставляем только заказы с нужным telegramId
-      .map(order => ({
-        telegramId: order[0],
-        date: order[1],
-        products: JSON.parse(order[2]), // Парсим JSON с товарами
-        totalCost: parseFloat(order[3]) // Преобразуем стоимость в число
-      }))
-      .sort((a, b) => new Date(b.date) - new Date(a.date)); // Сортировка по дате
-
-    console.log('Filtered Orders:', filteredOrders);
-    res.json(filteredOrders); // Возвращаем отфильтрованные заказы
+    res.json(userOrders);
   } catch (error) {
     console.error('Error fetching orders:', error);
     res.status(500).send('Internal Server Error');
