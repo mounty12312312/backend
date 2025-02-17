@@ -25,9 +25,15 @@ app.use((req, res, next) => {
 // Получение списка товаров
 app.get('/api/products', async (req, res) => {
   try {
-    const products = await readData('product!A2:F');
-    res.json(products);
-    console.log('Products:', products);
+    const products = await readData('product!A2:E');
+    const formattedProducts = products.map(product => ({
+      id: product[0],
+      name: product[1],
+      description: product[2],
+      price: parseFloat(product[3]),
+      photo: product[4]
+    }));
+    res.json(formattedProducts);
   } catch (error) {
     console.error('Error fetching products:', error);
     res.status(500).send('Internal Server Error');
