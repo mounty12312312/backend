@@ -6,8 +6,12 @@ const { google } = require('googleapis');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Простая настройка CORS
-app.use(cors());
+// Разрешаем подключения от фронтенда
+app.use(cors({
+  origin: 'https://mounty12312312.github.io/frontend',
+  credentials: true
+}));
+
 app.use(express.json());
 
 // Добавим логирование всех запросов
