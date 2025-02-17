@@ -12,6 +12,16 @@ const corsOptions = {
 app.use(cors(corsOptions)); // Используем cors для всех маршрутов
 app.use(express.json());
 
+// Добавляем middleware для логирования запросов
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  console.log('Headers:', req.headers);
+  if (req.body) {
+    console.log('Body:', req.body);
+  }
+  next();
+});
+
 // Получение списка товаров
 app.get('/api/products', async (req, res) => {
   try {
@@ -66,47 +76,66 @@ app.post('/api/user/:telegramId/updateBalance', async (req, res) => {
   }
 });
 
-// Обновляем обработку заказа
+// Обновляем обработчик заказа с логами
 app.post('/api/order', async (req, res) => {
+  console.log('Получен запрос на создание заказа');
   try {
     const { telegramId, products, totalCost, date, deliveryInfo } = req.body;
+    console.log('Данные заказа:', { telegramId, products, totalCost, date, deliveryInfo });
 
     // 1. Проверяем баланс пользователя
+    console.log('Получаем данные пользователей');
     const users = await readData('user!A2:B');
+    console.log('Полученные пользователи:', users);
+    
     const user = users.find(u => u[0] === telegramId);
+    console.log('Найденный пользователь:', user);
     
     if (!user) {
+      console.error('Пользователь не найден:', telegramId);
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     const currentBalance = parseFloat(user[1]);
+    console.log('Текущий баланс:', currentBalance);
+    console.log('Стоимость заказа:', totalCost);
+    
     if (currentBalance < totalCost) {
+      console.error('Недостаточно средств:', { currentBalance, totalCost });
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
     }
 
     // 2. Обновляем баланс пользователя
     const newBalance = currentBalance - totalCost;
+    console.log('Новый баланс:', newBalance);
+    
     const userRowIndex = users.findIndex(u => u[0] === telegramId) + 2;
+    console.log('Индекс строки пользователя:', userRowIndex);
+    
+    console.log('Обновляем баланс в таблице');
     await writeData(`user!B${userRowIndex}`, [[newBalance]]);
 
     // 3. Сохраняем заказ
+    console.log('Получаем текущие заказы');
     const orders = await readData('order!A2:D');
     const nextRow = orders.length + 2;
+    console.log('Следующая строка для заказа:', nextRow);
     
-    // Подготавливаем данные заказа
     const orderData = {
       products,
       deliveryInfo
     };
+    console.log('Подготовленные данные заказа:', orderData);
 
+    console.log('Сохраняем заказ в таблицу');
     await writeData(`order!A${nextRow}:D${nextRow}`, [[
       telegramId,
       date,
-      JSON.stringify(orderData), // Сохраняем и товары, и данные доставки
+      JSON.stringify(orderData),
       totalCost
     ]]);
 
-    // 4. Отправляем успешный ответ
+    console.log('Заказ успешно сохранен');
     res.json({
       success: true,
       newBalance,
@@ -114,10 +143,12 @@ app.post('/api/order', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error processing order:', error);
+    console.error('Ошибка при обработке заказа:', error);
+    console.error('Stack trace:', error.stack);
     res.status(500).json({
       success: false,
-      message: 'Internal Server Error'
+      message: 'Internal Server Error',
+      error: error.message
     });
   }
 });
