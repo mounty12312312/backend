@@ -5,38 +5,39 @@ const cors = require('cors'); // Импортируем cors
 const { readData, writeData } = require('./googleSheets');
 const app = express();
 const PORT = process.env.PORT || 3000;
-const corsOptions = {
-  origin: 'https://mounty12312312.github.io', // Разрешаем только этот домен
-  optionsSuccessStatus: 200 // Настраиваем статус для предварительных запросов
-};
-app.use(cors(corsOptions)); // Используем cors для всех маршрутов
+
+// Настройка CORS
+app.use(cors({
+  origin: '*', // Для тестирования. В продакшене укажите конкретный домен
+  methods: ['GET', 'POST'], // Явно указываем разрешенные методы
+  allowedHeaders: ['Content-Type']
+}));
+
 app.use(express.json());
 
-// Добавляем middleware для логирования запросов
+// Добавим логирование всех запросов
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   console.log('Headers:', req.headers);
-  if (req.body) {
-    console.log('Body:', req.body);
-  }
   next();
+});
+
+// Проверочный эндпоинт
+app.get('/api/test', (req, res) => {
+  console.log('Test endpoint hit');
+  res.json({ message: 'API is working' });
 });
 
 // Получение списка товаров
 app.get('/api/products', async (req, res) => {
+  console.log('Products endpoint hit');
   try {
     const products = await readData('product!A2:E');
-    const formattedProducts = products.map(product => ({
-      id: product[0],
-      name: product[1],
-      description: product[2],
-      price: parseFloat(product[3]),
-      photo: product[4]
-    }));
-    res.json(formattedProducts);
+    console.log('Products fetched:', products);
+    res.json(products);
   } catch (error) {
     console.error('Error fetching products:', error);
-    res.status(500).send('Internal Server Error');
+    res.status(500).json({ error: error.message });
   }
 });
 
