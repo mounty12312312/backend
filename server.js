@@ -2,13 +2,11 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
-const { readData, writeData } = require('./googleSheets');
+const { google } = require('googleapis');
 const app = express();
 const PORT = process.env.PORT || 3000;
-const User = require('./models/User');
-const Order = require('./models/Order');
 
-// Настройка CORS
+// Настройка CORS для GitHub Pages
 app.use(cors({
   origin: 'https://mounty12312312.github.io',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -24,9 +22,13 @@ app.use((req, res, next) => {
   next();
 });
 
+// Функция для чтения данных из Google Sheets
+async function readData(range) {
+  // ... существующий код ...
+}
+
 // Проверочный эндпоинт
 app.get('/api/test', (req, res) => {
-  console.log('Test endpoint hit');
   res.json({ message: 'API is working' });
 });
 
@@ -34,12 +36,9 @@ app.get('/api/test', (req, res) => {
 app.get('/api/balance/:telegramId', async (req, res) => {
   try {
     const telegramId = req.params.telegramId;
-    console.log('Получен запрос баланса для telegramId:', telegramId);
-
-    // Получаем текущих пользователей
     const users = await readData('user!A2:B');
     const user = users.find(u => u[0] === telegramId);
-
+    
     if (user) {
       res.json({ success: true, balance: parseFloat(user[1]) });
     } else {
@@ -51,34 +50,6 @@ app.get('/api/balance/:telegramId', async (req, res) => {
       success: false, 
       error: 'Внутренняя ошибка сервера при получении баланса' 
     });
-  }
-});
-
-// Получение истории заказов
-app.get('/api/orders', async (req, res) => {
-  try {
-    const telegramId = req.query.telegramId;
-    const orders = await readData('order!A2:D');
-    
-    // Фильтруем и форматируем заказы для конкретного пользователя
-    const userOrders = orders
-      .filter(order => order[0] === telegramId)
-      .map(order => {
-        const orderData = JSON.parse(order[2]);
-        return {
-          telegramId: order[0],
-          date: order[1],
-          products: orderData.products,
-          deliveryInfo: orderData.deliveryInfo,
-          totalCost: parseFloat(order[3])
-        };
-      })
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    res.json(userOrders);
-  } catch (error) {
-    console.error('Error fetching orders:', error);
-    res.status(500).send('Internal Server Error');
   }
 });
 
@@ -94,8 +65,37 @@ app.get('/api/products', async (req, res) => {
     }));
     res.json(formattedProducts);
   } catch (error) {
-    console.error('Error fetching products:', error);
-    res.status(500).send('Internal Server Error');
+    console.error('Ошибка при получении продуктов:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Внутренняя ошибка сервера при получении продуктов' 
+    });
+  }
+});
+
+// Получение истории заказов
+app.get('/api/orders', async (req, res) => {
+  try {
+    const telegramId = req.query.telegramId;
+    const orders = await readData('order!A2:D');
+    
+    const userOrders = orders
+      .filter(order => order[0] === telegramId)
+      .map(order => ({
+        telegramId: order[0],
+        date: order[1],
+        products: JSON.parse(order[2]),
+        totalCost: parseFloat(order[3])
+      }))
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    res.json(userOrders);
+  } catch (error) {
+    console.error('Ошибка при получении заказов:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Внутренняя ошибка сервера при получении заказов' 
+    });
   }
 });
 
@@ -235,20 +235,18 @@ app.post('/api/orders', async (req, res) => {
     }
 
     // Получаем заказы из базы данных
-    const orders = await Order.find({ telegramId })
-      .sort({ createdAt: -1 }) // Сортировка по убыванию даты
-      .limit(10); // Ограничиваем количество последних заказов
+    const orders = await readData('order!A2:D');
 
     console.log('Найдены заказы:', orders);
 
     res.json({ 
       success: true, 
       orders: orders.map(order => ({
-        id: order._id,
-        date: order.createdAt,
-        products: order.products,
-        totalCost: order.totalCost,
-        status: order.status
+        id: order[0],
+        date: order[1],
+        products: JSON.parse(order[2]),
+        totalCost: parseFloat(order[3]),
+        status: order[4]
       }))
     });
 
@@ -268,15 +266,6 @@ app.use((err, req, res, next) => {
     success: false, 
     error: 'Внутренняя ошибка сервера' 
   });
-});
-
-// Проверяем подключение к базе данных
-mongoose.connection.on('error', (err) => {
-  console.error('Ошибка подключения к MongoDB:', err);
-});
-
-mongoose.connection.once('open', () => {
-  console.log('Успешное подключение к MongoDB');
 });
 
 app.listen(PORT, () => {
