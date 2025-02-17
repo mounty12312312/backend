@@ -5,6 +5,8 @@ const cors = require('cors'); // Импортируем cors
 const { readData, writeData } = require('./googleSheets');
 const app = express();
 const PORT = process.env.PORT || 3000;
+const User = require('./models/User');
+const Order = require('./models/Order');
 
 // Настройка CORS
 app.use(cors({
@@ -191,26 +193,97 @@ app.get('/api/orders', async (req, res) => {
   }
 });
 
-// Баланс
+// Обработка баланса
 app.post('/api/balance', async (req, res) => {
   try {
     const { telegramId } = req.body;
-    // ... получение баланса ...
-    res.json({ success: true, balance: userBalance });
+    console.log('Получен запрос баланса для telegramId:', telegramId);
+
+    if (!telegramId) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Не указан telegramId' 
+      });
+    }
+
+    // Получаем баланс из базы данных
+    const user = await User.findOne({ telegramId });
+    console.log('Найден пользователь:', user);
+
+    if (!user) {
+      // Если пользователь не найден, создаем нового с нулевым балансом
+      const newUser = new User({ telegramId, balance: 0 });
+      await newUser.save();
+      return res.json({ success: true, balance: 0 });
+    }
+
+    res.json({ success: true, balance: user.balance });
+
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error('Ошибка при получении баланса:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Внутренняя ошибка сервера при получении баланса' 
+    });
   }
 });
 
-// История заказов
+// Обработка истории заказов
 app.post('/api/orders', async (req, res) => {
   try {
     const { telegramId } = req.body;
-    // ... получение истории заказов ...
-    res.json(orders);
+    console.log('Получен запрос истории заказов для telegramId:', telegramId);
+
+    if (!telegramId) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Не указан telegramId' 
+      });
+    }
+
+    // Получаем заказы из базы данных
+    const orders = await Order.find({ telegramId })
+      .sort({ createdAt: -1 }) // Сортировка по убыванию даты
+      .limit(10); // Ограничиваем количество последних заказов
+
+    console.log('Найдены заказы:', orders);
+
+    res.json({ 
+      success: true, 
+      orders: orders.map(order => ({
+        id: order._id,
+        date: order.createdAt,
+        products: order.products,
+        totalCost: order.totalCost,
+        status: order.status
+      }))
+    });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Ошибка при получении истории заказов:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Внутренняя ошибка сервера при получении истории заказов' 
+    });
   }
+});
+
+// Добавляем обработку ошибок
+app.use((err, req, res, next) => {
+  console.error('Необработанная ошибка:', err);
+  res.status(500).json({ 
+    success: false, 
+    error: 'Внутренняя ошибка сервера' 
+  });
+});
+
+// Проверяем подключение к базе данных
+mongoose.connection.on('error', (err) => {
+  console.error('Ошибка подключения к MongoDB:', err);
+});
+
+mongoose.connection.once('open', () => {
+  console.log('Успешное подключение к MongoDB');
 });
 
 app.listen(PORT, () => {
