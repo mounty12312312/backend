@@ -1,7 +1,7 @@
 require('dotenv').config();
 
 const express = require('express');
-const cors = require('cors'); // Импортируем cors
+const cors = require('cors');
 const { readData, writeData } = require('./googleSheets');
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,8 +11,8 @@ const Order = require('./models/Order');
 // Настройка CORS
 app.use(cors({
   origin: 'https://mounty12312312.github.io',
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type', 'Accept', 'Origin']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type']
 }));
 
 app.use(express.json());
@@ -30,16 +30,72 @@ app.get('/api/test', (req, res) => {
   res.json({ message: 'API is working' });
 });
 
-// Получение списка товаров
-app.get('/api/products', async (req, res) => {
-  console.log('Products endpoint hit');
+// Получение баланса
+app.get('/api/balance/:telegramId', async (req, res) => {
   try {
-    const products = await readData('product!A2:E');
-    console.log('Products fetched:', products);
-    res.json(products);
+    const telegramId = req.params.telegramId;
+    console.log('Получен запрос баланса для telegramId:', telegramId);
+
+    // Получаем текущих пользователей
+    const users = await readData('user!A2:B');
+    const user = users.find(u => u[0] === telegramId);
+
+    if (user) {
+      res.json({ success: true, balance: parseFloat(user[1]) });
+    } else {
+      res.json({ success: true, balance: 0 });
+    }
+  } catch (error) {
+    console.error('Ошибка при получении баланса:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Внутренняя ошибка сервера при получении баланса' 
+    });
+  }
+});
+
+// Получение истории заказов
+app.get('/api/orders', async (req, res) => {
+  try {
+    const telegramId = req.query.telegramId;
+    const orders = await readData('order!A2:D');
+    
+    // Фильтруем и форматируем заказы для конкретного пользователя
+    const userOrders = orders
+      .filter(order => order[0] === telegramId)
+      .map(order => {
+        const orderData = JSON.parse(order[2]);
+        return {
+          telegramId: order[0],
+          date: order[1],
+          products: orderData.products,
+          deliveryInfo: orderData.deliveryInfo,
+          totalCost: parseFloat(order[3])
+        };
+      })
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    res.json(userOrders);
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// Получение продуктов
+app.get('/api/products', async (req, res) => {
+  try {
+    const products = await readData('products!A2:D');
+    const formattedProducts = products.map(product => ({
+      id: product[0],
+      name: product[1],
+      price: parseFloat(product[2]),
+      image: product[3]
+    }));
+    res.json(formattedProducts);
   } catch (error) {
     console.error('Error fetching products:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).send('Internal Server Error');
   }
 });
 
@@ -161,69 +217,6 @@ app.post('/api/order', async (req, res) => {
       success: false,
       message: 'Internal Server Error',
       error: error.message
-    });
-  }
-});
-
-// Обновляем получение заказов
-app.get('/api/orders', async (req, res) => {
-  try {
-    const telegramId = req.query.telegramId;
-    const orders = await readData('order!A2:D');
-    
-    // Фильтруем и форматируем заказы для конкретного пользователя
-    const userOrders = orders
-      .filter(order => order[0] === telegramId)
-      .map(order => {
-        const orderData = JSON.parse(order[2]);
-        return {
-          telegramId: order[0],
-          date: order[1],
-          products: orderData.products,
-          deliveryInfo: orderData.deliveryInfo,
-          totalCost: parseFloat(order[3])
-        };
-      })
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    res.json(userOrders);
-  } catch (error) {
-    console.error('Error fetching orders:', error);
-    res.status(500).send('Internal Server Error');
-  }
-});
-
-// Обработка баланса
-app.post('/api/balance', async (req, res) => {
-  try {
-    const { telegramId } = req.body;
-    console.log('Получен запрос баланса для telegramId:', telegramId);
-
-    if (!telegramId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Не указан telegramId' 
-      });
-    }
-
-    // Получаем баланс из базы данных
-    const user = await User.findOne({ telegramId });
-    console.log('Найден пользователь:', user);
-
-    if (!user) {
-      // Если пользователь не найден, создаем нового с нулевым балансом
-      const newUser = new User({ telegramId, balance: 0 });
-      await newUser.save();
-      return res.json({ success: true, balance: 0 });
-    }
-
-    res.json({ success: true, balance: user.balance });
-
-  } catch (error) {
-    console.error('Ошибка при получении баланса:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Внутренняя ошибка сервера при получении баланса' 
     });
   }
 });
