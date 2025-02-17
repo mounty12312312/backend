@@ -191,6 +191,28 @@ app.get('/api/orders', async (req, res) => {
   }
 });
 
+// Баланс
+app.post('/api/balance', async (req, res) => {
+  try {
+    const { telegramId } = req.body;
+    // ... получение баланса ...
+    res.json({ success: true, balance: userBalance });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// История заказов
+app.post('/api/orders', async (req, res) => {
+  try {
+    const { telegramId } = req.body;
+    // ... получение истории заказов ...
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
