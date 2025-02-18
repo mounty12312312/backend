@@ -76,12 +76,11 @@ app.post('/api/user/:telegramId/updateBalance', async (req, res) => {
   }
 });
 
-// Обновляем обработчик заказа с логами
+// Обновляем обработчик заказа
 app.post('/api/order', async (req, res) => {
   console.log('Получен запрос на создание заказа');
   try {
     const { telegramId, products, totalCost, date, deliveryInfo } = req.body;
-    console.log('Данные заказа:', { telegramId, products, totalCost, date, deliveryInfo });
     // Преобразуем telegramId в строку
     const telegramIdStr = String(telegramId);
     console.log('Данные заказа:', { telegramId: telegramIdStr, products, totalCost, date, deliveryInfo });
@@ -91,13 +90,10 @@ app.post('/api/order', async (req, res) => {
     const users = await readData('user!A2:B');
     console.log('Полученные пользователи:', users);
 
-    const user = users.find(u => u[0] === telegramId);
-    // Ищем пользователя, сравнивая строковые значения
     const user = users.find(u => u[0] === telegramIdStr);
     console.log('Найденный пользователь:', user);
 
     if (!user) {
-      console.error('Пользователь не найден:', telegramId);
       console.error('Пользователь не найден:', telegramIdStr);
       return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -115,7 +111,6 @@ app.post('/api/order', async (req, res) => {
     const newBalance = currentBalance - totalCost;
     console.log('Новый баланс:', newBalance);
 
-    const userRowIndex = users.findIndex(u => u[0] === telegramId) + 2;
     const userRowIndex = users.findIndex(u => u[0] === telegramIdStr) + 2;
     console.log('Индекс строки пользователя:', userRowIndex);
 
@@ -136,8 +131,7 @@ app.post('/api/order', async (req, res) => {
 
     console.log('Сохраняем заказ в таблицу');
     await writeData(`order!A${nextRow}:D${nextRow}`, [[
-      telegramId,
-      telegramIdStr, // Сохраняем как строку
+      telegramIdStr,
       date,
       JSON.stringify(orderData),
       totalCost
