@@ -7,23 +7,70 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Разрешаем подключения от фронтенда
-app.use(cors({
-  origin: 'https://mounty12312312.github.io/frontend',
-  credentials: true
-}));
-
+const corsOptions = {
+  origin: 'https://mounty12312312.github.io', // Разрешаем только этот домен
+  optionsSuccessStatus: 200 // Настраиваем статус для предварительных запросов
+};
+app.use(cors(corsOptions)); // Используем cors для всех маршрутов
 app.use(express.json());
 
 // Добавим логирование всех запросов
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-  console.log('Headers:', req.headers);
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  if (req.body) {
+    console.log('Body:', req.body);
+  }
   next();
 });
 
+// Функция для авторизации в Google Sheets
+async function authorize() {
+  const auth = new google.auth.GoogleAuth({
+    credentials: {
+      client_email: process.env.GOOGLE_CLIENT_EMAIL,
+      private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    },
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
+  return auth;
+}
+
 // Функция для чтения данных из Google Sheets
 async function readData(range) {
-  // ... существующий код ...
+  try {
+    const auth = await authorize();
+    const sheets = google.sheets({ version: 'v4', auth });
+    
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      range: range,
+    });
+    
+    return response.data.values || [];
+  } catch (error) {
+    console.error('Error reading from sheets:', error);
+    throw error;
+  }
+}
+
+// Функция для записи данных в Google Sheets
+async function writeData(range, values) {
+  try {
+    const auth = await authorize();
+    const sheets = google.sheets({ version: 'v4', auth });
+    
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      range: range,
+      valueInputOption: 'RAW',
+      resource: {
+        values: values,
+      },
+    });
+  } catch (error) {
+    console.error('Error writing to sheets:', error);
+    throw error;
+  }
 }
 
 // Проверочный эндпоинт
@@ -52,17 +99,11 @@ app.get('/api/balance/:telegramId', async (req, res) => {
 // Получение продуктов
 app.get('/api/products', async (req, res) => {
   try {
-    const products = await readData('products!A2:D');
-    const formattedProducts = products.map(product => ({
-      id: product[0],
-      name: product[1],
-      price: parseFloat(product[2]),
-      image: product[3]
-    }));
-    res.json(formattedProducts);
+    const products = await readData('product!A2:E');
+    res.json(products);
   } catch (error) {
-    console.error('Ошибка при получении продуктов:', error);
-    res.status(500).json({ success: false, error: 'Ошибка сервера' });
+    console.error('Error fetching products:', error);
+    res.status(500).send('Internal Server Error');
   }
 });
 
@@ -74,18 +115,21 @@ app.get('/api/orders', async (req, res) => {
     
     const userOrders = orders
       .filter(order => order[0] === telegramId)
-      .map(order => ({
-        telegramId: order[0],
-        date: order[1],
-        products: JSON.parse(order[2]),
-        totalCost: parseFloat(order[3])
-      }))
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
+      .map(order => {
+        const orderData = JSON.parse(order[2]);
+        return {
+          telegramId: order[0],
+          date: order[1],
+          products: orderData.products,
+          deliveryInfo: orderData.deliveryInfo,
+          totalCost: parseFloat(order[3])
+        };
+      });
 
     res.json(userOrders);
   } catch (error) {
-    console.error('Ошибка при получении заказов:', error);
-    res.status(500).json({ success: false, error: 'Ошибка сервера' });
+    console.error('Error fetching orders:', error);
+    res.status(500).send('Internal Server Error');
   }
 });
 
@@ -95,12 +139,11 @@ app.get('/api/user/:telegramId', async (req, res) => {
     const telegramId = req.params.telegramId;
     const users = await readData('user!A2:B');
     const user = users.find(u => u[0] === telegramId);
+    
     if (user) {
-      res.json(user);
-      console.log('Telegram ID:', telegramId);
+      res.json([user[0], user[1]]);
     } else {
       res.status(404).send('User not found');
-      console.log('Telegram ID:', telegramId);
     }
   } catch (error) {
     console.error('Error fetching user:', error);
@@ -131,69 +174,47 @@ app.post('/api/user/:telegramId/updateBalance', async (req, res) => {
   }
 });
 
-// Обновляем обработчик заказа с логами
+// Обработчик заказа
 app.post('/api/order', async (req, res) => {
-  console.log('Получен запрос на создание заказа');
   try {
     const { telegramId, products, totalCost, date, deliveryInfo } = req.body;
-    // Преобразуем telegramId в строку
+    // Преобразуем telegramId в строку для сравнения
     const telegramIdStr = String(telegramId);
-    console.log('Данные заказа:', { telegramId: telegramIdStr, products, totalCost, date, deliveryInfo });
 
     // 1. Проверяем баланс пользователя
-    console.log('Получаем данные пользователей');
     const users = await readData('user!A2:B');
-    console.log('Полученные пользователи:', users);
-    
-    // Ищем пользователя, сравнивая строковые значения
     const user = users.find(u => u[0] === telegramIdStr);
-    console.log('Найденный пользователь:', user);
     
     if (!user) {
-      console.error('Пользователь не найден:', telegramIdStr);
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     const currentBalance = parseFloat(user[1]);
-    console.log('Текущий баланс:', currentBalance);
-    console.log('Стоимость заказа:', totalCost);
-    
     if (currentBalance < totalCost) {
-      console.error('Недостаточно средств:', { currentBalance, totalCost });
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
     }
 
     // 2. Обновляем баланс пользователя
     const newBalance = currentBalance - totalCost;
-    console.log('Новый баланс:', newBalance);
-    
     const userRowIndex = users.findIndex(u => u[0] === telegramIdStr) + 2;
-    console.log('Индекс строки пользователя:', userRowIndex);
-    
-    console.log('Обновляем баланс в таблице');
     await writeData(`user!B${userRowIndex}`, [[newBalance]]);
 
     // 3. Сохраняем заказ
-    console.log('Получаем текущие заказы');
     const orders = await readData('order!A2:D');
     const nextRow = orders.length + 2;
-    console.log('Следующая строка для заказа:', nextRow);
     
     const orderData = {
       products,
       deliveryInfo
     };
-    console.log('Подготовленные данные заказа:', orderData);
 
-    console.log('Сохраняем заказ в таблицу');
     await writeData(`order!A${nextRow}:D${nextRow}`, [[
-      telegramIdStr, // Сохраняем как строку
+      telegramIdStr,
       date,
       JSON.stringify(orderData),
       totalCost
     ]]);
 
-    console.log('Заказ успешно сохранен');
     res.json({
       success: true,
       newBalance,
@@ -201,50 +222,10 @@ app.post('/api/order', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Ошибка при обработке заказа:', error);
-    console.error('Stack trace:', error.stack);
+    console.error('Error processing order:', error);
     res.status(500).json({
       success: false,
-      message: 'Internal Server Error',
-      error: error.message
-    });
-  }
-});
-
-// Обработка истории заказов
-app.post('/api/orders', async (req, res) => {
-  try {
-    const { telegramId } = req.body;
-    console.log('Получен запрос истории заказов для telegramId:', telegramId);
-
-    if (!telegramId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Не указан telegramId' 
-      });
-    }
-
-    // Получаем заказы из базы данных
-    const orders = await readData('order!A2:D');
-
-    console.log('Найдены заказы:', orders);
-
-    res.json({ 
-      success: true, 
-      orders: orders.map(order => ({
-        id: order[0],
-        date: order[1],
-        products: JSON.parse(order[2]),
-        totalCost: parseFloat(order[3]),
-        status: order[4]
-      }))
-    });
-
-  } catch (error) {
-    console.error('Ошибка при получении истории заказов:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Внутренняя ошибка сервера при получении истории заказов' 
+      message: 'Internal Server Error'
     });
   }
 });
@@ -261,3 +242,5 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
+
+module.exports = { readData, writeData };
