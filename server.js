@@ -156,9 +156,9 @@ app.post('/api/order', async (req, res) => {
 });
 
 // Обновляем получение заказов
-app.get('/api/orders', async (req, res) => {
+app.get('/api/orders/:telegramId', async (req, res) => {
   try {
-    const telegramId = req.query.telegramId;
+    const { telegramId } = req.params; // Получаем telegramId из параметров пути
     const orders = await readData('order!A2:D');
 
     // Фильтруем и форматируем заказы для конкретного пользователя
@@ -175,6 +175,9 @@ app.get('/api/orders', async (req, res) => {
         };
       })
       .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    console.log(`Fetching orders for telegramId: ${telegramId}`);
+    console.log('Found orders:', userOrders);
 
     res.json(userOrders);
   } catch (error) {
