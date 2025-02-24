@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Мерч Самокат</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0;
+      padding: 0;
+      background-color: white;
+      color: black;
+      overflow-x: hidden;
+      width: 100%;
+      padding-top: 60px; /* Уменьшаем отступ для body */
+    }
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 36px;
+      background-color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      z-index: 1000;
+      box-sizing: border-box;
+    }
+    .header-button {
+      font-size: 10px;
+      padding: 6px 10px;
+      background-color: #ff355f;
+      color: white;
+      border: none;
+      border-radius: 15px;
+      cursor: pointer;
+      white-space: nowrap;
+      margin: 0 5px;
+    }
+    .balance-container {
+      font-size: 10px;
+      padding: 6px 10px;
+      background-color: white;
+      border-radius: 15px;
+      border: 1px solid #ff355f;
+      white-space: nowrap;
+      margin-right: 5px;
+      display: inline-block;
+    }
+    .cart-container,
+    .history-container {
+      position: fixed;
+      top: 36px; /* Обновляем отступ сверху для контейнеров */
+      right: -400px;
+      width: 100%;
+      max-width: 400px;
+      height: calc(100vh - 36px); /* Обновляем высоту */
+      background-color: white;
+      border-left: 1px solid #ccc;
+      box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      box-sizing: border-box;
+      transition: right 0.3s ease-out;
+      overflow-y: auto;
+      z-index: 999;
+    }
+    .cart-container.show,
+    .history-container.show {
+      right: 0;
+    }
+    .cart-item,
+    .order-container {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto auto;
+      align-items: center;
+      gap: 15px;
+      padding: 15px;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      width: 95%;
+      margin-left: auto;
+      margin-right: auto;
+      background-color: white;
+    }
+    .order-container {
+      padding: 15px;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      width: 95%;
+      margin-left: auto;
+      margin-right: auto;
+      background-color: white;
+    }
+    .order-date {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+    .order-products {
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+    .order-total {
+      color: #ff355f;
+      font-weight: bold;
+      text-align: right;
+    }
+    .cart-item-name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding-left: 10px;
+      min-width: 0;
+    }
+    .cart-item-quantity {
+      white-space: nowrap;
+      text-align: center;
+    }
+    .quantity-button {
+      width: 24px;
+      height: 24px;
+      border: none;
+      background-color: #ff355f;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      position: relative;
+    }
+    .quantity-button.minus::after,
+    .quantity-button.plus::after,
+    .quantity-button.plus::before {
+      content: '';
+      position: absolute;
+      background-color: white;
+    }
+    .quantity-button.minus::after {
+      width: 12px;
+      height: 2px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .quantity-button.plus::before {
+      width: 12px;
+      height: 2px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .quantity-button.plus::after {
+      width: 2px;
+      height: 12px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .load-more-button {
+      background-color: #ff355f;
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      width: 90%;
+      margin: 20px auto;
+      display: block;
+      font-size: 14px;
+    }
+    .load-more-button:hover {
+      background-color: #e61e4d;
+    }
+    #products {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      padding: 10px;
+      max-width: 100%;
+      box-sizing: border-box;
+      margin: 0 auto;
+    }
+    .product {
+      border: 1px solid #ccc;
+      padding: 10px;
+      width: calc(50% - 30px); /* Уменьшаем ширину, чтобы учесть отступы */
+      max-width: 400px;
+      box-sizing: border-box; /* Учитываем padding и border в ширине */
+      display: flex;
+      flex-direction: column; /* Выравниваем содержимое по вертикали */
+      align-items: center; /* Центрируем содержимое */
+      margin: 10px; /* Добавляем отступы по бокам */
+    }
+    .product img {
+      width: 100%; /* Изображение занимает всю ширину блока */
+      height: auto; /* Сохраняем пропорции */
+      object-fit: cover; /* Обрезаем изображение, если оно не помещается */
+      max-height: 200px; /* Максимальная высота изображения */
+    }
+    .cart-item, .history-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .cart-item span {
+      flex: 1; /* Название товара занимает доступное пространство */
+      margin-right: 10px; /* Отступ между названием и количеством */
+    }
+    .cart-item .quantity-controls {
+      display: flex; /* Группируем кнопки "+" и "-" */
+      gap: 5px; /* Отступ между кнопками */
+      align-items: center; /* Выравниваем кнопки по центру */
+    }
+    .cart-item button, .history-item button {
+      padding: 5px 10px; /* Добавляем внутренние отступы для кнопок */
+      cursor: pointer;
+      border: 1px solid #ccc;
+      background-color: white;
+      border-radius: 5px; /* Скругляем углы кнопок */
+    }
+    .cart-item button:hover {
+      background-color: #f0f0f0; /* Эффект при наведении */
+    }
+    .cart-total, .history-total {
+      margin-top: 10px;
+      text-align: right;
+    }
+    .back-button {
+      margin-top: 10px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-size: 16px;
+      color: #007bff;
+    }
+    .back-button:hover {
+      text-decoration: underline;
+    }
+    /* Анимация появления (выпадения из центра) */
+    @keyframes fadeIn {
+      from {
+        transform: scale(0.8);
+        opacity: 0;
+      }
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+    /* Анимация исчезновения (закрытия) */
+    @keyframes fadeOut {
+      from {
+        transform: scale(1);
+        opacity: 1;
+      }
+      to {
+        transform: scale(0.8);
+        opacity: 0;
+      }
+    }
+    .checkout-button {
+      display: none;
+      width: 90%;
+      margin: 20px auto;
+      background-color: #ff355f;
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 16px;
+    }
+    .cart-container.show .checkout-button {
+      display: block;
+    }
+    /* Удаляем стили для кнопки на главном экране */
+    button.checkout-button:not(.cart-container *) {
+      display: none !important;
+    }
+    .checkout-form-container {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      z-index: 2000; /* Оставляем меньше чем у loading-overlay */
+      justify-content: center;
+      align-items: center;
+    }
+    .checkout-form {
+      background-color: white;
+      padding: 30px;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+      position: relative;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    .form-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .form-buttons button {
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .form-buttons .cancel {
+      background-color: #f8f9fa;
+      border: 1px solid #ddd;
+    }
+    .form-buttons .submit {
+      background-color: #007bff;
+      color: white;
+      border: none;
+    }
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      text-align: center;
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      margin: 20px;
+    }
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.6;
+    }
+    .empty-state-text {
+      color: #6c757d;
+      font-size: 16px;
+      font-weight: 500;
+    }
+    .product-card {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #e0e0e0; /* Тонкая серая рамка */
+      border-radius: 8px;
+      padding: 15px;
+      background: white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .product-image {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+    .product-name {
+      font-size: 18px;
+      margin: 0 0 8px 0;
+      color: #333;
+    }
+    .product-description {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 12px;
+    }
+    .product-price {
+      font-size: 16px;
+      font-weight: bold;
+      color: #ff355f;
+      margin-bottom: 12px;
+    }
+    .add-to-cart-button {
+      width: 100%;
+      padding: 8px 16px;
+      background-color: #ff355f;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .add-to-cart-button:hover {
+      background-color: #e61e4d;
+    }
+    /* Обновляем все остальные кнопки с синим цветом */
+    .checkout-button,
+    .form-buttons .submit {
+      background-color: #ff355f;
+    }
+    .checkout-button:hover,
+    .form-buttons .submit:hover {
+      background-color: #e61e4d;
+    }
+    /* Обновляем цвет текста баланса */
+    .product-price,
+    .order-total,
+    #cart-total,
+    #user-balance-value {
+      color: #ff355f;
+    }
+    /* Обновляем стили для мобильных устройств */
+    @media (max-width: 600px) {
+      .product-card {
+        margin: 5px;
+      }
+      #products {
+        padding: 10px;
+        gap: 10px;
+      }
+      .header {
+        padding: 0 10px;
+      }
+      .header-button {
+        padding: 6px 12px;
+        font-size: 14px;
+      }
+    }
+    .checkout-button {
+      background-color: #ff355f;
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 90%;
+      margin: 20px auto;
+      display: block;
+      font-size: 16px;
+    }
+    .checkout-button:disabled {
+      background-color: #ffb3c0;
+      cursor: not-allowed;
+    }
+    .checkout-button:not(:disabled):hover {
+      background-color: #e61e4d;
+    }
+    .cart-container {
+      position: fixed;
+      top: 36px;
+      right: -400px;
+      width: 100%;
+      max-width: 400px;
+      height: calc(100vh - 36px);
+      background-color: white;
+      border-left: 1px solid #ccc;
+      box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+      box-sizing: border-box;
+      transition: right 0.3s ease-out;
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+    .cart-container.show {
+      right: 0;
+    }
+    .cart-items {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 20px;
+    }
+    .checkout-container {
+      padding: 20px;
+      background: white;
+      border-top: 1px solid #eee;
+    }
+    .checkout-button {
+      display: none;
+      width: 100%;
+      height: 44px;
+      background-color: #ff355f;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .checkout-button.visible {
+      display: block;
+    }
+    .header-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .back-button {
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0;
+      color: #333;
+    }
+    .cart-checkout-button-container {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 20px;
+      background-color: white;
+      width: 100%;
+      max-width: 400px;
+    }
+    .cart-checkout-button {
+      width: 90%;
+      margin: 0 auto;
+      display: block;
+      background-color: #ff355f;
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      font-size: 16px;
+    }
+    .cart-items {
+      padding-bottom: 80px; /* Отступ для кнопки оформления заказа */
+    }
+    /* Скрываем кнопку на главном экране */
+    #main-checkout-button {
+      display: none !important;
+    }
+    .cart-checkout-button {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80%;
+      max-width: 320px;
+      background-color: #ff355f;
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease-out;
+      font-size: 16px;
+      z-index: 1000;
+      display: none;
+    }
+    .cart-container.show .cart-checkout-button {
+      display: block;
+    }
+    /* Обновляем стили для плашки загрузки */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(5px);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999; /* Максимальный z-index, чтобы быть поверх всего */
+    }
+    .loading-content {
+      background-color: white;
+      padding: 20px 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+      z-index: 10000; /* На 1 больше чем у overlay */
+    }
+    .loading-spinner {
+      width: 24px;
+      height: 24px;
+      border: 3px solid #ff355f;
+      border-top: 3px solid transparent;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    .loading-text {
+      color: #ff355f;
+      font-size: 16px;
+      font-weight: 500;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    #user-balance-value,
+    #user-balance-text {
+      font-size: 10px;
+      color: #ff355f;
+    }
+    /* Добавляем стили для всплывающего уведомления */
+    .toast-notification {
+      position: fixed;
+      top: 50px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #ff355f;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      z-index: 10000;
+      opacity: 0;
+      transition: opacity 0.3s ease-in-out;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="loading-content">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Подождите...</div>
+    </div>
+  </div>
+  <div class="header">
+    <div class="balance-container">
+      <span id="user-balance-value" style="display: none;">0 баллов</span>
+      <span id="user-balance-text" style="display: none;">Нет баланса</span>
+    </div>
+    <button class="header-button" onclick="toggleCart()">Корзина</button>
+    <button class="header-button" onclick="toggleHistory()">История заказов</button>
+  </div>
+  <div id="products"></div>
+  <div class="cart-container" id="cart-container">
+    <div class="header-container">
+      <h2>Корзина</h2>
+      <button class="back-button" onclick="toggleCart()">✕</button>
+    </div>
+    <div id="cart-items"></div>
+    <div class="checkout-container">
+      <button class="checkout-button" onclick="showCheckoutForm()">Оформить заказ</button>
+    </div>
+  </div>
+  <div class="history-container" id="history-container">
+    <div class="header-container">
+      <h2>История заказов</h2>
+      <button class="back-button" onclick="toggleHistory()">✕</button>
+    </div>
+    <div id="history-items"></div>
+  </div>
+  <div class="checkout-form-container" id="checkout-form-container">
+    <div class="checkout-form">
+      <h3>Оформление заказа</h3>
+      <div class="form-group">
+        <label for="sender-name">ФИО отправителя*</label>
+        <input type="text" id="sender-name" required>
+      </div>
+      <div class="form-group">
+        <label for="sender-phone">Телефон отправителя*</label>
+        <input type="tel" id="sender-phone" required>
+      </div>
+      <div class="form-group">
+        <label for="recipient">ФИО получателя*</label>
+        <input type="text" id="recipient" required>
+      </div>
+      <div class="form-group">
+        <label for="phone">Телефон получателя*</label>
+        <input type="tel" id="phone" required>
+      </div>
+      <div class="form-group">
+        <label for="city">Город*</label>
+        <input type="text" id="city" required>
+      </div>
+      <div class="form-group">
+        <label for="address">Адрес доставки*</label>
+        <input type="text" id="address" required>
+      </div>
+      <div class="form-buttons">
+        <button class="cancel" onclick="hideCheckoutForm()">Отмена</button>
+        <button class="submit" onclick="submitOrder()">Подтвердить</button>
+      </div>
+    </div>
+  </div>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script>
+    // Инициализация Telegram Mini Apps SDK
+    const telegram = window.Telegram.WebApp;
+    telegram.expand();
+    // Получение initDataUnsafe
+    const initDataUnsafe = telegram.initDataUnsafe;
+    let telegramId = null;
+    if (initDataUnsafe && initDataUnsafe.user) {
+      telegramId = initDataUnsafe.user.id;
+    } else {
+      console.error('Не удалось получить данные пользователя');
+    }
+    console.log('Telegram ID:', telegramId);
+    const BACKEND_URL = 'https://backend-ten-swart-36.vercel.app';
+    let cartItems = {};
+    const cartItemsList = document.getElementById('cart-items');
+    const cartTotalElement = document.getElementById('cart-total');
+    const cartTotalContainer = document.getElementById('cart-total-container');
+    const cartButton = document.getElementById('cart-button');
+    let userBalanceValue = document.getElementById('user-balance-value');
+    let userBalanceText = document.getElementById('user-balance-text');
+
+    // Добавляем константы для кэширования
+    const CACHE_DURATION = 5 * 60 * 1000; // 5 минут
+    const CACHE_KEYS = {
+      PRODUCTS: 'cached_products',
+      USER_BALANCE: 'cached_user_balance',
+      ORDERS: 'cached_orders'
+    };
+
+    // Обновляем порядок выполнения при загрузке страницы
+    // Удалим все существующие обработчики DOMContentLoaded и объединим их в один
+    let isInitialized = false;
+    document.addEventListener('DOMContentLoaded', async () => {
+      console.log('DOMContentLoaded event triggered');
+      if (isInitialized) return;
+      isInitialized = true;
+
+      showLoading();
+
+      try {
+        createRequiredElements();
+        
+        const balanceValueElement = document.getElementById('user-balance-value');
+        const balanceTextElement = document.getElementById('user-balance-text');
+        
+        if (balanceValueElement && balanceTextElement) {
+          balanceValueElement.style.display = 'none';
+          balanceTextElement.style.display = 'block';
+        }
+
+        await loadCartFromCache();
+
+        await Promise.all([
+          fetchUserBalance(),
+          fetchProducts(),
+          fetchOrderHistory()
+        ]);
+        
+        // Удаляем кнопку с главного экрана
+        const mainCheckoutButton = document.querySelector('#main-checkout-button');
+        if (mainCheckoutButton) {
+          mainCheckoutButton.remove();
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        hideLoading();
+      }
+    });
+
+    // Добавляем новые функции для работы с формой
+    function showCheckoutForm() {
+      document.getElementById('checkout-form-container').style.display = 'flex';
+    }
+
+    function hideCheckoutForm() {
+      document.getElementById('checkout-form-container').style.display = 'none';
+    }
+
+    async function submitOrder() {
+      const overlay = document.getElementById('loading-overlay');
+      if (overlay) {
+        overlay.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+      }
+      
+      const loadingText = document.querySelector('.loading-overlay .loading-text');
+      if (loadingText) {
+        loadingText.textContent = 'Оформляем заказ...';
+      }
+
+      try {
+        const senderName = document.getElementById('sender-name').value;
+        const senderPhone = document.getElementById('sender-phone').value;
+        const recipient = document.getElementById('recipient').value;
+        const phone = document.getElementById('phone').value;
+        const city = document.getElementById('city').value;
+        const address = document.getElementById('address').value;
+
+        if (!senderName || !senderPhone || !recipient || !phone || !city || !address) {
+          alert('Пожалуйста, заполните все обязательные поля');
+          return;
+        }
+
+        const deliveryInfo = {
+          senderName,
+          senderPhone,
+          recipient,
+          phone,
+          city,
+          address
+        };
+
+        await checkout(deliveryInfo);
+        hideCheckoutForm();
+        clearCartCache();
+        if (loadingText) {
+          loadingText.textContent = 'Подождите...';
+        }
+      } catch (error) {
+        console.error('Ошибка при оформлении заказа:', error);
+        alert('Произошла ошибка при оформлении заказа');
+      } finally {
+        if (overlay) {
+          overlay.style.display = 'none';
+          document.body.style.overflow = '';
+        }
+        if (loadingText) {
+          loadingText.textContent = 'Подождите...';
+        }
+      }
+    }
+
+    // Обновляем функцию checkout
+    async function checkout(deliveryInfo) {
+      if (!telegramId) {
+        alert('Не удалось получить ID пользователя');
+        return;
+      }
+
+      try {
+        // Вычисляем общую стоимость из cartItems
+        const totalCost = Object.values(cartItems).reduce((sum, item) => {
+          return sum + (item.price * item.quantity);
+        }, 0);
+
+        const orderData = {
+          telegramId,
+          products: cartItems,
+          totalCost: totalCost,
+          date: getMoscowDate(),
+          deliveryInfo
+        };
+
+        console.log('Отправляемые данные заказа:', orderData);
+
+        const orderResponse = await fetch(`${BACKEND_URL}/api/order`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(orderData)
+        });
+
+        if (!orderResponse.ok) {
+          const errorText = await orderResponse.text();
+          throw new Error(`Ошибка при оформлении заказа: ${orderResponse.status}. ${errorText}`);
+        }
+
+        const result = await orderResponse.json();
+        
+        if (result.success) {
+          // Создаем объект заказа из текущих данных
+          const newOrder = {
+            date: getMoscowDate(),
+            trackNumber: 'Трек-номер не назначен',
+            totalCost: totalCost
+          };
+          
+          // Добавляем заказ в начало истории
+          const historyContainer = document.getElementById('history-items');
+          if (historyContainer) {
+            const orderElement = document.createElement('div');
+            orderElement.className = 'order-container';
+            orderElement.innerHTML = `
+              <div>${new Date(newOrder.date).toLocaleDateString()}</div>
+              <div style="color: #666;">${newOrder.trackNumber}</div>
+              <div style="color: #ff355f; text-align: right; font-weight: bold;">${formatPrice(newOrder.totalCost)}</div>
+            `;
+            historyContainer.insertBefore(orderElement, historyContainer.firstChild);
+          }
+
+          clearCache();
+          await fetchUserBalance();
+          cartItems = {};
+          updateCartDisplay();
+          updateCartButton();
+          showToast('Заказ успешно оформлен');
+          toggleCart();
+        } else {
+          throw new Error(result.message || 'Ошибка при оформлении заказа');
+        }
+      } catch (error) {
+        console.error('Ошибка при оформлении заказа:', error);
+        throw error; // Пробрасываем ошибку дальше для обработки в submitOrder
+      }
+    }
+
+    // Обновляем функцию displayOrders
+    function displayOrders(orders, isLoadMore = false) {
+      const historyContainer = document.getElementById('history-items');
+      if (!historyContainer) return;
+
+      // Удаляем все существующие кнопки "Загрузить еще"
+      const existingButtons = document.querySelectorAll('.load-more-button');
+      existingButtons.forEach(button => button.remove());
+
+      if (!isLoadMore) {
+        historyContainer.innerHTML = '';
+        currentPage = 1; // Сбрасываем страницу при первой загрузке
+      }
+
+      if (!orders || orders.length === 0) {
+        if (!isLoadMore) {
+          const emptyState = document.createElement('div');
+          emptyState.className = 'empty-state';
+          emptyState.innerHTML = `
+            <div class="empty-state-icon">📋</div>
+            <div class="empty-state-text">История заказов пуста</div>
+          `;
+          historyContainer.appendChild(emptyState);
+        }
+        return;
+      }
+
+      // Определяем диапазон заказов для текущей страницы
+      const start = (currentPage - 1) * ordersPerPage;
+      const end = currentPage * ordersPerPage;
+      const pageOrders = orders.slice(start, end);
+
+      pageOrders.forEach(order => {
+        try {
+          const orderElement = document.createElement('div');
+          orderElement.className = 'order-container';
+          
+          orderElement.innerHTML = `
+            <div>${new Date(order.date).toLocaleDateString()}</div>
+            <div style="color: #666;">${order.trackNumber}</div>
+            <div style="color: #ff355f; text-align: right; font-weight: bold;">${formatPrice(order.totalCost)}</div>
+          `;
+          
+          historyContainer.appendChild(orderElement);
+        } catch (error) {
+          console.error('Error displaying order:', error);
+        }
+      });
+
+      // Показываем кнопку "Загрузить еще" только если есть еще заказы
+      if (end < orders.length) {
+        const loadMoreButton = document.createElement('button');
+        loadMoreButton.className = 'load-more-button';
+        loadMoreButton.textContent = 'Загрузить еще';
+        loadMoreButton.style.backgroundColor = '#ff355f';
+        loadMoreButton.style.color = 'white';
+        loadMoreButton.onclick = () => {
+          currentPage++;
+          displayOrders(orders, true);
+        };
+        historyContainer.appendChild(loadMoreButton);
+      }
+    }
+
+    // Добавляем функцию для создания необходимых элементов
+    function createRequiredElements() {
+      if (!document.querySelector('.history-container')) {
+        const historyContainer = document.createElement('div');
+        historyContainer.className = 'history-container';
+        document.body.appendChild(historyContainer);
+      }
+
+      if (!document.getElementById('history-items')) {
+        const historyItems = document.createElement('div');
+        historyItems.id = 'history-items';
+        document.querySelector('.history-container').appendChild(historyItems);
+      }
+    }
+
+    // Обновляем функцию обновления баланса
+    function updateUserBalance(balance) {
+      const balanceValueElement = document.getElementById('user-balance-value');
+      const balanceTextElement = document.getElementById('user-balance-text');
+
+      if (!balanceValueElement || !balanceTextElement) {
+        console.error('Balance elements not found');
+        return;
+      }
+
+      console.log('Обновление баланса:', balance);
+
+      if (balance !== null && balance !== undefined) {
+        // Есть баланс
+        balanceValueElement.textContent = `${balance} баллов`;
+        balanceValueElement.style.display = 'block';
+        balanceTextElement.style.display = 'none';
+      } else {
+        // Нет баланса
+        balanceValueElement.style.display = 'none';
+        balanceTextElement.style.display = 'block';
+      }
+    }
+
+    // Обновляем функцию получения баланса
+    async function fetchUserBalance() {
+      if (!telegramId) {
+        console.error('TelegramId not found');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/user/${telegramId}`);
+        console.log('Balance response status:', response.status);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Balance data received:', data);
+
+        if (data && data[1] !== undefined) {
+          updateUserBalance(data[1]);
+        } else {
+          console.error('Invalid balance data:', data);
+          updateUserBalance(null);
+        }
+      } catch (error) {
+        console.error('Ошибка при получении баланса:', error);
+        updateUserBalance(null);
+      }
+    }
+
+    // Функции для работы с кешем корзины
+    function saveCartToCache() {
+      try {
+        localStorage.setItem('merch_cart', JSON.stringify(cartItems));
+      } catch (error) {
+        console.error('Ошибка сохранения корзины:', error);
+      }
+    }
+
+    function loadCartFromCache() {
+      return new Promise((resolve) => {
+        try {
+          const cached = localStorage.getItem('merch_cart');
+          cartItems = cached ? JSON.parse(cached) : {};
+          
+          // Принудительно обновляем отображение и кнопку
+          updateCartDisplay();
+          updateCartButton();
+          
+          resolve();
+        } catch (error) {
+          console.error('Ошибка загрузки корзины:', error);
+          cartItems = {};
+          updateCartDisplay();
+          updateCartButton();
+          resolve();
+        }
+      });
+    }
+
+    function clearCartCache() {
+      localStorage.removeItem('merch_cart');
+      cartItems = {};
+      updateCartDisplay();
+      updateCartButton();
+    }
+
+    // Обновляем функцию добавления в корзину
+    function addToCart(productId, name, price) {
+      if (!cartItems[productId]) {
+        cartItems[productId] = {
+          name,
+          price,
+          quantity: 0
+        };
+      }
+      cartItems[productId].quantity++;
+      updateCartDisplay();
+      updateCartButton();
+      saveCartToCache();
+    }
+
+    // Обновляем функцию изменения количества
+    function updateCartItemQuantity(productId, delta) {
+      if (cartItems[productId]) {
+        cartItems[productId].quantity += delta;
+        if (cartItems[productId].quantity <= 0) {
+          delete cartItems[productId];
+        }
+        updateCartDisplay();
+        updateCartButton();
+        saveCartToCache();
+      }
+    }
+
+    // Функция для получения даты в МСК (UTC+3)
+    function getMoscowDate() {
+      const now = new Date();
+      // Получаем смещение в минутах для МСК (UTC+3)
+      const mskOffset = 3 * 60;
+      // Получаем локальное смещение в минутах
+      const localOffset = -now.getTimezoneOffset();
+      // Вычисляем разницу в миллисекундах
+      const diffOffset = (mskOffset - localOffset) * 60 * 1000;
+
+      // Создаем новую дату с учетом смещения
+      const mskDate = new Date(now.getTime() + diffOffset);
+
+      // Форматируем дату в формате YYYY-MM-DD
+      return mskDate.toISOString().split('T')[0];
+    }
+
+    // Обновляем функцию updateCartDisplay
+    function updateCartDisplay() {
+      const cartItemsList = document.getElementById('cart-items');
+      const checkoutButton = document.querySelector('.checkout-button');
+      
+      if (!cartItemsList || !checkoutButton) return;
+      
+      cartItemsList.innerHTML = '';
+
+      const hasItems = Object.keys(cartItems).length > 0;
+      
+      if (!hasItems) {
+        cartItemsList.innerHTML = '<p style="text-align: center; color: #888;">Корзина пуста</p>';
+        checkoutButton.classList.remove('visible');
+        checkoutButton.disabled = true; // Делаем кнопку неактивной
+      } else {
+        checkoutButton.classList.add('visible');
+        checkoutButton.disabled = false; // Делаем кнопку активной
+        
+        for (const productId in cartItems) {
+          const item = cartItems[productId];
+          const li = document.createElement('li');
+          li.className = 'cart-item';
+          
+          li.innerHTML = `
+            <span class="cart-item-name">${item.name}</span>
+            <button class="quantity-button minus" onclick="updateCartItemQuantity('${productId}', -1)">-</button>
+            <span class="cart-item-quantity">${item.quantity} x ${formatPrice(item.price)}</span>
+            <button class="quantity-button plus" onclick="updateCartItemQuantity('${productId}', 1)">+</button>
+          `;
+          
+          cartItemsList.appendChild(li);
+        }
+      }
+    }
+
+    // Обновляем функцию кнопки корзины
+    function updateCartButton() {
+      const cartButton = document.querySelector('button[onclick="toggleCart()"]');
+      if (!cartButton) return;
+
+      const totalCost = Object.values(cartItems).reduce((sum, item) => {
+        return sum + (item.price * item.quantity);
+      }, 0);
+      
+      cartButton.textContent = totalCost > 0 ? `Корзина: ${formatPrice(totalCost)}` : 'Корзина';
+    }
+
+    let orders = [];
+    let currentPage = 1;
+    const ordersPerPage = 5;
+
+    async function fetchOrderHistory() {
+      if (!telegramId) {
+        console.error('TelegramId not found');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/orders/${telegramId}`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const orders = await response.json();
+        console.log('Полученные заказы:', orders);
+        
+        if (orders && Array.isArray(orders)) {
+          displayOrders(orders);
+        } else {
+          console.error('Неверный формат данных заказов:', orders);
+          displayOrders([]);
+        }
+      } catch (error) {
+        console.error('Ошибка при получении истории заказов:', error);
+        displayOrders([]);
+      }
+    }
+
+    function toggleCart() {
+      const cartContainer = document.getElementById('cart-container');
+      const historyContainer = document.getElementById('history-container');
+
+      if (cartContainer.classList.contains('show')) {
+        cartContainer.classList.remove('show');
+        setTimeout(() => {
+          cartContainer.style.display = 'none';
+        }, 300);
+      } else {
+        if (historyContainer) {
+          historyContainer.classList.remove('show');
+        }
+        cartContainer.style.display = 'block';
+        cartContainer.offsetHeight;
+        cartContainer.classList.add('show');
+        updateCartDisplay();
+      }
+    }
+
+    function toggleHistory() {
+      const historyContainer = document.getElementById('history-container');
+      const cartContainer = document.getElementById('cart-container');
+
+      historyContainer.style.display = 'block';
+      
+      if (historyContainer.classList.contains('show')) {
+        historyContainer.classList.remove('show');
+        setTimeout(() => {
+          historyContainer.style.display = 'none';
+        }, 300);
+      } else {
+        cartContainer.classList.remove('show');
+        setTimeout(() => {
+          cartContainer.style.display = 'none';
+        }, 300);
+        historyContainer.classList.add('show');
+      }
+    }
+
+    // Добавляем функцию очистки кэша после успешной покупки
+    function clearCache() {
+      localStorage.removeItem(CACHE_KEYS.USER_BALANCE);
+      localStorage.removeItem(CACHE_KEYS.ORDERS);
+    }
+
+    // Функция показа загрузки
+    function showLoading() {
+      const overlay = document.getElementById('loading-overlay');
+      if (overlay) {
+        overlay.style.display = 'flex';
+        document.body.style.overflow = 'hidden'; // Блокируем прокрутку
+      }
+    }
+
+    // Функция скрытия загрузки
+    function hideLoading() {
+      const overlay = document.getElementById('loading-overlay');
+      if (overlay) {
+        overlay.style.display = 'none';
+        document.body.style.overflow = ''; // Возвращаем прокрутку
+      }
+    }
+
+    // Обновляем функцию fetchProducts
+    async function fetchProducts() {
+      console.log('Fetching products...');
+      showLoading();
+      try {
+        const url = `${BACKEND_URL}/api/products`;
+        console.log('Request URL:', url);
+        
+        const response = await fetch(url);
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const products = await response.json();
+        console.log('Products received:', products);
+        console.log('Displaying products:', products);
+        
+        // Проверяем наличие контейнера продуктов
+        const productsContainer = document.getElementById('products');
+        console.log('Products container:', productsContainer);
+        
+        if (!productsContainer) {
+          console.error('Products container not found');
+          return;
+        }
+
+        // Очищаем контейнер
+        productsContainer.innerHTML = '';
+
+        // Добавляем каждый продукт
+        products.forEach(product => {
+          const [id, name, description, price, image] = product;
+          console.log('Creating product card:', { id, name, description, price, image });
+          
+          const productCard = document.createElement('div');
+          productCard.className = 'product-card';
+          
+          productCard.innerHTML = `
+            <img src="${image}" alt="${name}" class="product-image">
+            <div class="product-info">
+              <h3 class="product-name">${name}</h3>
+              <p class="product-description">${description}</p>
+              <div class="product-price">${price} баллов</div>
+              <button onclick="addToCart('${id}', '${name.replace(/'/g, "\\'")}', ${price})" class="add-to-cart-button">
+                Добавить в корзину
+              </button>
+            </div>
+          `;
+          
+          productsContainer.appendChild(productCard);
+        });
+
+        return products;
+      } catch (error) {
+        console.error('Error fetching products:', error);
+        throw error;
+      } finally {
+        hideLoading();
+      }
+    }
+
+    // Обновляем функцию форматирования цены
+    function formatPrice(price) {
+      return Math.round(price) + ' Б';
+    }
+
+    // Обновляем функцию отображения продуктов
+    function displayProducts(products) {
+      const productsContainer = document.getElementById('products');
+      if (!productsContainer) {
+        console.error('Products container not found');
+        return;
+      }
+
+      productsContainer.innerHTML = '';
+
+      products.forEach(product => {
+        const [id, name, description, price, image] = product;
+        
+        const productCard = document.createElement('div');
+        productCard.className = 'product-card';
+        
+        productCard.innerHTML = `
+          <img src="${image}" alt="${name}" class="product-image">
+          <div class="product-info">
+            <h3 class="product-name">${name}</h3>
+            <p class="product-description">${description}</p>
+            <div class="product-price">${price} Б</div>
+            <button onclick="addToCart('${id}', '${name.replace(/'/g, "\\'")}', ${price})" class="add-to-cart-button">
+              Добавить в корзину
+            </button>
+          </div>
+        `;
+
+        productsContainer.appendChild(productCard);
+      });
+    }
+
+    // Добавляем функцию для показа уведомления
+    function showToast(message) {
+      // Удаляем существующее уведомление, если оно есть
+      const existingToast = document.querySelector('.toast-notification');
+      if (existingToast) {
+        existingToast.remove();
+      }
+      
+      // Создаем новое уведомление
+      const toast = document.createElement('div');
+      toast.className = 'toast-notification';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      
+      // Показываем уведомление
+      setTimeout(() => {
+        toast.style.opacity = '1';
+      }, 100);
+      
+      // Скрываем и удаляем через 3 секунды
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => {
+          toast.remove();
+        }, 300);
+      }, 3000);
+    }
+  </script>
+</body>
