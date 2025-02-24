@@ -81,55 +81,63 @@ app.post('/api/order', async (req, res) => {
   console.log('Получен запрос на создание заказа');
   try {
     const { telegramId, products, totalCost, date, deliveryInfo } = req.body;
-    // Преобразуем telegramId в строку
     const telegramIdStr = String(telegramId);
-    console.log('Данные заказа:', { telegramId: telegramIdStr, products, totalCost, date, deliveryInfo });
 
-    // 1. Проверяем баланс пользователя
-    console.log('Получаем данные пользователей');
+    // Проверяем остатки перед оформлением заказа
+    const currentProducts = await readData('product!A2:F');
+    for (const productId in products) {
+      const product = currentProducts.find(p => p[0] === productId);
+      if (!product) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Product not found',
+          needsReload: true 
+        });
+      }
+      const currentStock = parseInt(product[2]); // Остаток из столбца C
+      const orderQuantity = products[productId].quantity;
+      if (currentStock < orderQuantity) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Insufficient stock',
+          needsReload: true 
+        });
+      }
+    }
+
+    // Проверяем баланс пользователя
     const users = await readData('user!A2:B');
-    console.log('Полученные пользователи:', users);
-
     const user = users.find(u => u[0] === telegramIdStr);
-    console.log('Найденный пользователь:', user);
-
+    
     if (!user) {
-      console.error('Пользователь не найден:', telegramIdStr);
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     const currentBalance = parseFloat(user[1]);
-    console.log('Текущий баланс:', currentBalance);
-    console.log('Стоимость заказа:', totalCost);
-
     if (currentBalance < totalCost) {
-      console.error('Недостаточно средств:', { currentBalance, totalCost });
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
     }
 
-    // 2. Обновляем баланс пользователя
+    // Обновляем баланс пользователя
     const newBalance = currentBalance - totalCost;
-    console.log('Новый баланс:', newBalance);
-
     const userRowIndex = users.findIndex(u => u[0] === telegramIdStr) + 2;
-    console.log('Индекс строки пользователя:', userRowIndex);
-
-    console.log('Обновляем баланс в таблице');
     await writeData(`user!B${userRowIndex}`, [[newBalance]]);
 
-    // 3. Сохраняем заказ
-    console.log('Получаем текущие заказы');
-    const orders = await readData('order!A2:D');
+    // Обновляем остатки товаров
+    for (const productId in products) {
+      const productIndex = currentProducts.findIndex(p => p[0] === productId);
+      if (productIndex !== -1) {
+        const currentStock = parseInt(currentProducts[productIndex][2]);
+        const newStock = currentStock - products[productId].quantity;
+        await writeData(`product!C${productIndex + 2}`, [[newStock]]);
+      }
+    }
+
+    // Сохраняем заказ
+    const orders = await readData('order!A2:E');
     const nextRow = orders.length + 2;
-    console.log('Следующая строка для заказа:', nextRow);
+    const orderData = { products, deliveryInfo };
 
-    const orderData = {
-      products,
-      deliveryInfo
-    };
-    console.log('Подготовленные данные заказа:', orderData);
-
-    console.log('Сохраняем заказ в таблицу');
     await writeData(`order!A${nextRow}:D${nextRow}`, [[
       telegramIdStr,
       date,
@@ -137,7 +145,6 @@ app.post('/api/order', async (req, res) => {
       totalCost
     ]]);
 
-    console.log('Заказ успешно сохранен');
     res.json({
       success: true,
       newBalance,
@@ -146,7 +153,6 @@ app.post('/api/order', async (req, res) => {
 
   } catch (error) {
     console.error('Ошибка при обработке заказа:', error);
-    console.error('Stack trace:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Internal Server Error',
