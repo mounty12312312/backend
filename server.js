@@ -164,7 +164,7 @@ app.get('/api/orders/:telegramId', async (req, res) => {
     // Фильтруем и форматируем заказы для конкретного пользователя
     const userOrders = orders
       .filter(order => order[0] === telegramId)
-      .map((order, index) => {
+      .map(order => {
         const orderData = JSON.parse(order[2]);
         return {
           telegramId: order[0],
@@ -172,19 +172,10 @@ app.get('/api/orders/:telegramId', async (req, res) => {
           products: orderData.products,
           deliveryInfo: orderData.deliveryInfo,
           totalCost: parseFloat(order[3]),
-          trackNumber: order[4] || 'Трек-номер не назначен',
-          orderIndex: orders.length - index // Добавляем индекс для сортировки
+          trackNumber: order[4] || 'Трек-номер не назначен'
         };
       })
-      .sort((a, b) => {
-        // Сначала сортируем по дате
-        const dateComparison = new Date(b.date) - new Date(a.date);
-        if (dateComparison !== 0) {
-          return dateComparison;
-        }
-        // Если даты одинаковые, сортируем по индексу (более новые заказы выше)
-        return b.orderIndex - a.orderIndex;
-      });
+      .reverse(); // Просто разворачиваем массив
 
     console.log(`Fetching orders for telegramId: ${telegramId}`);
     console.log('Found orders:', userOrders);
