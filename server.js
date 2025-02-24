@@ -158,8 +158,8 @@ app.post('/api/order', async (req, res) => {
 // Обновляем получение заказов
 app.get('/api/orders/:telegramId', async (req, res) => {
   try {
-    const { telegramId } = req.params; // Получаем telegramId из параметров пути
-    const orders = await readData('order!A2:D');
+    const { telegramId } = req.params;
+    const orders = await readData('order!A2:E'); // Добавляем столбец E с трек-номером
 
     // Фильтруем и форматируем заказы для конкретного пользователя
     const userOrders = orders
@@ -171,7 +171,8 @@ app.get('/api/orders/:telegramId', async (req, res) => {
           date: order[1],
           products: orderData.products,
           deliveryInfo: orderData.deliveryInfo,
-          totalCost: parseFloat(order[3])
+          totalCost: parseFloat(order[3]),
+          trackNumber: order[4] || 'Трек-номер не назначен' // Добавляем трек-номер
         };
       })
       .sort((a, b) => new Date(b.date) - new Date(a.date));
